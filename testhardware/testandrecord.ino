@@ -38,6 +38,21 @@ SDCard sdCard;
 // Create a microphone object.
 i2sMic microphone;
 
+// Define a series of notes. (Cminor chord)
+int melody[] = { NOTE_C3, NOTE_D3, NOTE_DS3, NOTE_F3, NOTE_G3, NOTE_GS3, NOTE_AS3, NOTE_C4};
+
+// Create a 32bits buffer to store audio.
+int32_t audioBuffer[SAMPLE_BUFFER_SIZE]; 
+
+// Create a boolean to remember if an sd card is present.
+bool hasSDCard = false;
+
+// Create a value to keep track of elapsed time.
+unsigned long log_timer=0;
+
+// Create a value to keep track of the recordings we store
+unsigned int fileIndex=0;
+
 // Create a series of notes.
 int notes[] = {
   NOTE_C2, NOTE_CS2, NOTE_D2, NOTE_DS2, NOTE_E2, NOTE_F2, NOTE_FS2, NOTE_G2, NOTE_GS2, NOTE_A2, NOTE_AS2, NOTE_B2,
@@ -47,11 +62,8 @@ int notes[] = {
   NOTE_C6
 };
 
-// Create a 32bits buffer to store audio.
-int32_t audioBuffer[SAMPLE_BUFFER_SIZE]; 
 
-// Create a boolean to remember if an sd card is present.
-bool hasSDCard = false;
+
 
 void setup(){
 
@@ -89,44 +101,19 @@ void setup(){
   // Try to mount the SD Card and remember if it is present
   hasSDCard = sdCard.setup(SDCARD_CS_PIN);
 
-  // Wait for the button to be pressed
-  Serial.println("Waiting for Button Press to record a test sample");
-  while(!Button1.pressed()) {
-    Button1.update();
-  }
+  delay(1000);
 
-  // start recording timer
-  ulong recordStartTime = millis(); 
+  // Play 8 notes and light up 8 LEDs
+  for (int index = 0; index < 8; index++) {
 
-  // Record 2 seconds of audio
-  int numSamplesRecorded = microphone.record(audioBuffer, SAMPLE_BUFFER_SIZE);
-
-  // end recording timer
-  ulong recordTime = millis() - recordStartTime;
-
-  // log the recorded samples
-  Serial.print("samples read:");
-  Serial.println(numSamplesRecorded);
-  Serial.print("record time:");
-  Serial.println(recordTime);
-  Serial.println();
-
-  // save the recorded audio to the SDCard (if present)
-  if (hasSDCard) {
-    sdCard.writeWavFile("/test.wav", audioBuffer, numSamplesRecorded, SAMPLE_RATE);
-  }
-
-}
-
-void loop(){
-  
-  // Iterate (loop) over the list of notes
- 
-  for (int note = 0; note < 49; note++) {
+    // Set the LED corressponding with to a random color (random Hue)
+    leds[index] = Color::FromHSL(random(255),255,128);
+    // Write the led values to the ledRing.
+    ledRing.update();
 
     // set the corresponding frequency of the note.
-    analogWriteFrequency(AUDIO_OUT_PIN, notes[note]);
-    
+    analogWriteFrequency(AUDIO_OUT_PIN, melody[index]);
+
     // Sound on.
     analogWrite(AUDIO_OUT_PIN, 512);
 
@@ -136,37 +123,67 @@ void loop(){
     // Sound on.
     analogWrite(AUDIO_OUT_PIN, 0);
 
-    // Wait 1/5 second .  
-    delay(200);
-
-    // Set all leds off.
+    // Set all leds to off
     for (int l = 0; l < NUM_LEDS; l++) {
       leds[l].hex = 0x000000;
     }
-
-    // Increase the activeLeds number with 1
-    activeLed = activeLed + 1;
-
-    // Start over if we have reached the last led
-    if (activeLed >= NUM_LEDS) {
-      activeLed=0;
-    }
-
-    // Set the active LED to a random color (random Hue)
-    leds[activeLed] = Color::FromHSL(random(255),255,128);
-
     // Write the led values to the ledRing.
     ledRing.update();
 
-    // Read and print the values of the lightsensors
-    Serial.print("LDR1:");
-    Serial.print(analogRead(LDR_LEFT_PIN));
-    Serial.print(" | LDR2:");
-    Serial.println(analogRead(LDR_RIGHT_PIN));
+    // Wait 1/5 seconds.
+    delay(200);
 
   }
 
-  // Wait 1 second before starting over with the lowest note.
-  delay(1000);
+  Serial.println();
+  Serial.println("Press button to record a test sample");
+  Serial.println();
+
+  // prime the timer (set it to current time)
+  log_timer = millis();
+}
+
+void loop(){
+  Button1.update();
+
+  if(Button1.pressed()) {  // Returns true if the button was pressed
+
+      // wait 1/5 of a second before starting with recording
+      delay(200); 
+      Serial.println("Now recording 2 seconds..");
+
+      int numSamplesRecorded = microphone.record(audioBuffer, SAMPLE_BUFFER_SIZE);
+  
+      Serial.print("samples recorded:");
+      Serial.println(numSamplesRecorded);
+      Serial.println();
+
+      // save the recorded audio to the SDCard (if present)
+      if (hasSDCard) {
+        // Create a filename with the format: /recording_0001.wav 
+        String filename = sdCard.makeFilename("/recording", fileIndex);
+
+        // Increase the file index with 1
+        fileIndex++;
+
+        Serial.print("Saving on SDCard as:");
+        Serial.println(filename);
+        Serial.println();
+
+        sdCard.writeWavFile(filename, audioBuffer, numSamplesRecorded, SAMPLE_RATE);
+      }      
+  } 
+
+  // Print the values of the lightsensors every second.
+  // this prevents the values being logged continuously, stalling the device
+  if (millis() > log_timer + 1000) {
+    // set our timer to the current time.
+    log_timer = millis();
+    Serial.print("Light Sensor L:");
+    Serial.print(analogRead(LDR_LEFT_PIN));
+    Serial.print(" | Light Sensor R:");
+    Serial.println(analogRead(LDR_RIGHT_PIN));
+  }
+
 
 }

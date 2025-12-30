@@ -88,6 +88,15 @@ private:
         b4=numSamples*2+44;
         f.write((byte*)&b4,4);          // data length in bytes
     }
+    
+    String padZeros(int number, int width) {
+        String result = String(number);
+        while (result.length() < width) {
+            result = "0" + result;
+        }
+        return result;
+    }
+
 public:
     // Constructors
     SDCard() {}
@@ -161,7 +170,14 @@ public:
 
         // Close the file.
         file.close();
+    }
 
+    void writeWavFile(String waveFileName, int32_t* sampleBuffer, uint32_t numSamples, uint32_t sampleRate) {
+        writeWavFile(waveFileName.c_str(), sampleBuffer, numSamples, sampleRate);
+    }
+
+    String makeFilename(String baseName, int index, int digits = 4) {
+        return "/" + baseName + "_" + padZeros(index, digits) + ".wav";
     }
 };
 
