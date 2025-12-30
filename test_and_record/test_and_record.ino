@@ -76,9 +76,7 @@ void setup(){
   ledRing.init(LEDRING_PIN, leds, NUM_LEDS);
 
   // Turn all leds off
-  for (int l=0; l < NUM_LEDS; l++) {
-    leds[l].hex = 0x000000;
-  }
+  ledRing.clear();
   ledRing.update();
 
   // Setup microphone
@@ -127,6 +125,9 @@ void setup(){
     for (int l = 0; l < NUM_LEDS; l++) {
       leds[l].hex = 0x000000;
     }
+
+    // Set all leds to off
+    ledRing.clear();
     // Write the led values to the ledRing.
     ledRing.update();
 
@@ -136,7 +137,7 @@ void setup(){
   }
 
   Serial.println();
-  Serial.println("Press button to record a test sample");
+  Serial.println("Press button to record a test sample.");
   Serial.println();
 
   // prime the timer (set it to current time)
@@ -154,8 +155,8 @@ void loop(){
 
       int numSamplesRecorded = microphone.record(audioBuffer, SAMPLE_BUFFER_SIZE);
   
-      Serial.print("samples recorded:");
-      Serial.println(numSamplesRecorded);
+      Serial.print(numSamplesRecorded);
+      Serial.println(" samples recorded.");
       Serial.println();
 
       // save the recorded audio to the SDCard (if present)
