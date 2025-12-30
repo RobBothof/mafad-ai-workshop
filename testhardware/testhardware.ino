@@ -148,7 +148,7 @@ void loop(){
     activeLed = activeLed + 1;
 
     // Start over if we have reached the last led
-    if (activeLed > NUM_LEDS) {
+    if (activeLed >= NUM_LEDS) {
       activeLed=0;
     }
 
@@ -166,7 +166,7 @@ void loop(){
 
   }
 
-
+  // Wait 1 second before starting over with the lowest note.
   delay(1000);
 
 }
