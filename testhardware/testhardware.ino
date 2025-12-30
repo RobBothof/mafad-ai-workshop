@@ -1,256 +1,171 @@
-#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
-#include "pitches.h"
-#include <driver/i2s.h>
 #include <Bounce2.h>
-#include <WS2812.h>
+#include "workshop/WS2812.h"
+#include "workshop/workshop_library.h"
+#include "workshop/pitches.h"
 
-#define NUM_LEDS 8
+#define I2S_MIC_SCK_PIN 1         // clockPin
+#define I2S_MIC_WS_PIN 7          // wordSelectPin
+#define I2S_MIC_SD_PIN 10         // channelSelectPin
 
-#define SAMPLE_BUFFER_SIZE 32000
-#define SAMPLE_RATE 20000
+#define SDCARD_CS_PIN 6           // sdcard chip select pin
 
-#define I2S_MIC_SCK_PIN 1
-#define I2S_MIC_WS_PIN 7
-#define I2S_MIC_SD_PIN 10
+#define AUDIO_OUT_PIN 11          // amplifier / speaker pin
+#define BUTTON_PIN 17             // button pin
+#define LEDRING_PIN 43            // ledring data pin
 
-#define SDCARD_CS_PIN 6
+#define LDR_LEFT_PIN 8            // left lightsensor pin
+#define LDR_RIGHT_PIN 9           // right lightsensor pin
 
-#define AUDIO_OUT_PIN 11
-#define BUTTON_PIN 17
-#define LEDRING_PIN 43
+#define SAMPLE_RATE 20000         // recording quality 20khz (20.000 samples per second)
+#define SAMPLE_BUFFER_SIZE 40000  // size of the audio buffer, 2 seconds ( 2 * 20.000 = 40000 samples)
 
-#define LDR_LEFT_PIN 8
-#define LDR_RIGHT_PIN 9
+#define NUM_LEDS 8                // the ledring uses 8 leds
 
-Color leds[NUM_LEDS];
+
+// Create an array/list to store 8 colors for the ledring.
+Color leds[NUM_LEDS];       
+int activeLed = 0;
+
+// Create a button object (with debouncing).
 Bounce2::Button Button1 = Bounce2::Button();
 
-int16_t clip32(int32_t value) {
-  if (value > INT16_MAX) return INT16_MAX;
-  if (value < INT16_MIN) return INT16_MIN;
-  return static_cast<int16_t>(value);
-}
+// Create a led ring object.
+WS2812 ledRing;
 
-WS2812Array ledRing;
+// Create a sd card object.
+SDCard sdCard;
 
-// don't mess around with this
-i2s_config_t i2s_config = {
-    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
-    .sample_rate = SAMPLE_RATE,
-    .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
-    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-    .communication_format = I2S_COMM_FORMAT_I2S,
-    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-    .dma_buf_count = 4,
-    .dma_buf_len = 64,
-    .use_apll = false,
-    .tx_desc_auto_clear = false,
-    .fixed_mclk = 0,    
+// Create a microphone object.
+i2sMic microphone;
+
+// Create a series of notes.
+int notes[] = {
+  NOTE_C2, NOTE_CS2, NOTE_D2, NOTE_DS2, NOTE_E2, NOTE_F2, NOTE_FS2, NOTE_G2, NOTE_GS2, NOTE_A2, NOTE_AS2, NOTE_B2,
+  NOTE_C3, NOTE_CS3, NOTE_D3, NOTE_DS3, NOTE_E3, NOTE_F3, NOTE_FS3, NOTE_G3, NOTE_GS3, NOTE_A3, NOTE_AS3, NOTE_B3,
+  NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4, NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4, NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4,
+  NOTE_C5, NOTE_CS5, NOTE_D5, NOTE_DS5, NOTE_E5, NOTE_F5, NOTE_FS5, NOTE_G5, NOTE_GS5, NOTE_A5, NOTE_AS5, NOTE_B5,
+  NOTE_C6
 };
 
-// and don't mess around with this
-i2s_pin_config_t i2s_mic_pins = {
-    .bck_io_num = I2S_MIC_SCK_PIN,
-    .ws_io_num = I2S_MIC_WS_PIN,
-    .data_out_num = I2S_PIN_NO_CHANGE,
-    .data_in_num = I2S_MIC_SD_PIN};
+// Create a 32bits buffer to store audio.
+int32_t audioBuffer[SAMPLE_BUFFER_SIZE]; 
 
-int melody[] = {
-  NOTE_C3, NOTE_G5, NOTE_G3, NOTE_A3, NOTE_C5, NOTE_C2, NOTE_B3, NOTE_C6
-};
-
-// note durations: 4 = quarter note, 8 = eighth note, etc.:
-int noteDurations[] = {
-  4, 4, 4, 4, 4, 4, 4, 4
-};
-
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
-  Serial.printf("Listing directory: %s\n", dirname);
-
-  File root = fs.open(dirname);
-  if(!root){
-    Serial.println("Failed to open directory");
-    return;
-  }
-  if(!root.isDirectory()){
-    Serial.println("Not a directory");
-    return;
-  }
-
-  File file = root.openNextFile();
-  while(file){
-    if(file.isDirectory()){
-      Serial.print("  DIR : ");
-      Serial.println(file.name());
-      if(levels){
-        listDir(fs, file.name(), levels -1);
-      }
-    } else {
-      Serial.print("  FILE: ");
-      Serial.print(file.name());
-      Serial.print("  SIZE: ");
-      Serial.println(file.size());
-    }
-    file = root.openNextFile();
-  }
-}
-
-// int16_t raw_samples[SAMPLE_BUFFER_SIZE];
-int32_t audioBuffer[SAMPLE_BUFFER_SIZE]; // capture 2 seconds at 16khz
-unsigned long recTimer = 0;
-
-bool SDCardGood=false;
-
-// Write the waveheader.32000
-void writeWavHeader(File f, uint32_t numSamples) {
-    uint32_t b4=0;
-    uint16_t b2=0;
-    f.print("RIFF");
-    b4=numSamples*2+44;
-    f.write((byte*)&b4,4);         // filesize
-    f.print("WAVE");
-    f.print("fmt ");
-    b4=16;
-    f.write((byte*)&b4,4);          // fmt size
-    b2=1;
-    f.write((byte*)&b2,2);          // 1=PCM
-    f.write((byte*)&b2,2);          // num channels, 1 = mono
-    b4=SAMPLE_RATE;
-    f.write((byte*)&b4,4);          // samplerate
-    b4=SAMPLE_RATE*2;
-    f.write((byte*)&b4,4);          // Sample Rate * BitsPerSample * Channels) / 8.
-    b2=2;
-    f.write((byte*)&b2,2);          // bytes per sample
-    b2=16;
-    f.write((byte*)&b2,2);          // bits per sample
-    f.print("data");
-    b4=numSamples*2+44;
-    f.write((byte*)&b4,4);          // data length in bytes
-}
+// Create a boolean to remember if an sd card is present.
+bool hasSDCard = false;
 
 void setup(){
 
+  // Setup LightSensors
   pinMode(LDR_LEFT_PIN,INPUT);
   pinMode(LDR_RIGHT_PIN,INPUT);
-  pinMode(LEDRING_PIN, OUTPUT);
 
-  // Setup LedRing.
+  // Setup LedRing
+  pinMode(LEDRING_PIN, OUTPUT);
   ledRing.init(LEDRING_PIN, leds, NUM_LEDS);
+
+  // Turn all leds off
   for (int l=0; l < NUM_LEDS; l++) {
-    leds[l].hex = random(0xffffff);
+    leds[l].hex = 0x000000;
   }
   ledRing.update();
 
-  // Init I2S Microphone.
-  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_NUM_0, &i2s_mic_pins);
+  // Setup microphone
+  microphone.setup(SAMPLE_RATE, I2S_MIC_SCK_PIN, I2S_MIC_WS_PIN, I2S_MIC_SD_PIN);
 
-  delay(100);
-
+  // Setup printing to serial monitor
   Serial.begin(115200);
   Serial.println("\n--------------------");
 
   // Set up Button
-  Button1.attach( BUTTON_PIN, INPUT_PULLDOWN);
+  Button1.attach(BUTTON_PIN, INPUT_PULLDOWN);
+  // Set debounce time
   Button1.interval(10);
   Button1.setPressedState(HIGH); 
 
-  // Setup AUDIO OUT
+  // Setup audio output
   pinMode(AUDIO_OUT_PIN, OUTPUT);
+  analogWriteResolution(AUDIO_OUT_PIN, 10);
 
+  // Try to mount the SD Card and remember if it is present
+  hasSDCard = sdCard.setup(SDCARD_CS_PIN);
+
+  // Wait for the button to be pressed
   Serial.println("Waiting for Button Press to record a test sample");
   while(!Button1.pressed()) {
     Button1.update();
   }
 
-  if(SD.begin(SDCARD_CS_PIN)){
-    uint8_t cardType = SD.cardType();
-    if (cardType == CARD_MMC || cardType == CARD_SD || cardType == CARD_SDHC)
-    {
-      SDCardGood = true;
-      Serial.println("SDCard Mounted succesfully.");
-    } else {
-      Serial.println("No SD card attached");
-      return;
-    }    delay(2000);
+  // start recording timer
+  ulong recordStartTime = millis(); 
 
-  } else {
-    Serial.println("Card Mount Failed");
-    return;
-  }
+  // Record 2 seconds of audio
+  int numSamplesRecorded = microphone.record(audioBuffer, SAMPLE_BUFFER_SIZE);
 
+  // end recording timer
+  ulong recordTime = millis() - recordStartTime;
 
+  // log the recorded samples
+  Serial.print("samples read:");
+  Serial.println(numSamplesRecorded);
+  Serial.print("record time:");
+  Serial.println(recordTime);
+  Serial.println();
 
-  if (SDCardGood) {
-    size_t bytes_read = 0;
-    ulong timer = millis();
-    i2s_read(I2S_NUM_0, audioBuffer, sizeof(int32_t) * SAMPLE_BUFFER_SIZE, &bytes_read, portMAX_DELAY);
-    ulong rec_time = millis() - timer;
-    int numSamples = bytes_read / (sizeof(int32_t));
-
-    Serial.print("samples read:");
-    Serial.println(numSamples);
-    Serial.print("record time:");
-    Serial.println(rec_time);
-
-    // Create the file.
-    File file = SD.open("/test.wav", FILE_WRITE);
-    if(!file){
-      Serial.println("Failed to open file for writing");
-      return;
-    } 
-
-    // Write the WAV audio header.
-    writeWavHeader(file, numSamples);
-    
-    // Write the samples.
-    for (uint s=0; s<numSamples; s++) {
-      int16_t sample = clip32(audioBuffer[s]/4096);
-      file.write((byte*)&sample,2);
-    }
-
-    // Close the file.
-    file.close();
-   
-    // Show SD Card contents. 
-    listDir(SD, "/", 0);
-    Serial.printf("%lluMB of %lluMB in use.\n\n", SD.usedBytes() / (1024 * 1024), SD.totalBytes() / (1024 * 1024));
-
+  // save the recorded audio to the SDCard (if present)
+  if (hasSDCard) {
+    sdCard.writeWavFile("/test.wav", audioBuffer, numSamplesRecorded, SAMPLE_RATE);
   }
 
 }
 
 void loop(){
- for (int thisNote = 0; thisNote < 8; thisNote++) {
+  
+  // Iterate (loop) over the list of notes
+ 
+  for (int note = 0; note < 49; note++) {
 
-    int note=random(8);
-    int noteDuration = 1500 / (random(6)+2);
+    // set the corresponding frequency of the note.
+    analogWriteFrequency(AUDIO_OUT_PIN, notes[note]);
+    
+    // Sound on.
+    analogWrite(AUDIO_OUT_PIN, 512);
 
+    // Wait 1/2 second.
+    delay(500);
 
-    // to calculate the note duration, take one second divided by the note type.
-    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-    tone(AUDIO_OUT_PIN, melody[note], noteDuration);
+    // Sound on.
+    analogWrite(AUDIO_OUT_PIN, 0);
 
-    // to distinguish the notes, set a minimum time between them.
-    // the note's duration + 30% seems to work well:
-    int pauseBetweenNotes = noteDuration * 1.30;
-    delay(pauseBetweenNotes*0.7);
+    // Wait 1/5 second .  
+    delay(200);
 
-    delay(pauseBetweenNotes*0.3);
+    // Set all leds off.
+    for (int l = 0; l < NUM_LEDS; l++) {
+      leds[l].hex = 0x000000;
+    }
+
+    // Increase the activeLeds number with 1
+    activeLed = activeLed + 1;
+
+    // Start over if we have reached the last led
+    if (activeLed > NUM_LEDS) {
+      activeLed=0;
+    }
+
+    // Set the active LED to a random color (random Hue)
+    leds[activeLed] = Color::FromHSL(random(255),255,128);
+
+    // Write the led values to the ledRing.
+    ledRing.update();
+
+    // Read and print the values of the lightsensors
+    Serial.print("LDR1:");
+    Serial.print(analogRead(LDR_LEFT_PIN));
+    Serial.print(" | LDR2:");
+    Serial.println(analogRead(LDR_RIGHT_PIN));
 
   }
 
-  for (int l=0; l < NUM_LEDS; l++) {
-    leds[l].hex=random(0xFFFFFF);
-  }
-  ledRing.update();
-
-  Serial.print("LDR1:");
-  Serial.println(analogRead(LDR_LEFT_PIN));
-  Serial.print("LDR2:");
-  Serial.println(analogRead(LDR_RIGHT_PIN));
 
   delay(1000);
 

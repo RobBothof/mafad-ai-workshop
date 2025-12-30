@@ -6,8 +6,8 @@
  * Rob Bothof [rbothof@xs4all.nl]
  */
 
-#ifndef WS2812_ARRAY
-#define WS2812_ARRAY
+#ifndef WS2812_H
+#define WS2812_H
 
 #include <Arduino.h>
 
@@ -28,6 +28,31 @@ public:
   Color(uint8_t red, uint8_t green, uint8_t blue) : x(0), r(red), g(green), b(blue) {}
   Color(uint32_t rawvalue) : hex(rawvalue) {}
   
+  // HSL to RGB conversion (integer math only)
+  // h: 0-255 (maps to 0-360 degrees), s: 0-255, l: 0-255
+  static Color FromHSL(uint8_t h, uint8_t s, uint8_t l) {
+    if (s == 0) {
+      // Achromatic (gray)
+      return Color(l, l, l);
+    }
+    
+    uint8_t region = h / 43;  // 0-5
+    uint8_t remainder = (h - (region * 43)) * 6;
+    
+    uint8_t p = (l * (255 - s)) >> 8;
+    uint8_t q = (l * (255 - ((s * remainder) >> 8))) >> 8;
+    uint8_t t = (l * (255 - ((s * (255 - remainder)) >> 8))) >> 8;
+    
+    switch (region) {
+      case 0:  return Color(l, t, p);
+      case 1:  return Color(q, l, p);
+      case 2:  return Color(p, l, t);
+      case 3:  return Color(p, q, l);
+      case 4:  return Color(t, p, l);
+      default: return Color(l, p, q);
+    }
+  }
+
   // Named colors
   static const Color Black;
   static const Color Red;
@@ -64,16 +89,17 @@ inline const Color Color::Orange = Color(255, 165, 0);
 inline const Color Color::Purple = Color(128, 0, 128);
 inline const Color Color::Pink = Color(255, 192, 203);
 
-class WS2812Array {
+class WS2812 {
 private:
-  Color* leds;
   uint16_t numLeds;
   bool initialized;
   uint8_t pin;
   
 public:
-  WS2812Array() : pin(0), leds(nullptr), numLeds(0), initialized(false) {}
-  
+  WS2812() : pin(0), leds(nullptr), numLeds(0), initialized(false) {}
+
+  Color* leds;
+
   void init(uint8_t datapin, Color* ledArray, uint16_t count) {
     pin = datapin;
     leds = ledArray;
@@ -141,4 +167,4 @@ public:
 };
 
 
-#endif // WS2812_ARRAY
+#endif // WS2812
