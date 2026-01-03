@@ -1,30 +1,39 @@
+
 #include <Bounce2.h>
-#include "workshop/WS2812.h"
-#include "workshop/workshop_library.h"
-#include "workshop/pitches.h"
 
-#define I2S_MIC_SCK_PIN 1         // clockPin
-#define I2S_MIC_WS_PIN 7          // wordSelectPin
-#define I2S_MIC_SD_PIN 10         // channelSelectPin
+#include <WS2812.h>
+#include <ai-workshop.h>
+#include <pitches.h>
 
-#define SDCARD_CS_PIN 6           // sdcard chip select pin
+// add:
+#include <esp32-hal-psram.h>
+#include <esp_heap_caps.h>
+#include <esp_system.h>
 
-#define AUDIO_OUT_PIN 11          // amplifier / speaker pin
-#define BUTTON_PIN 17             // button pin
-#define LEDRING_PIN 43            // ledring data pin
+#define MY_DEVICE "MAFAD"
+#define MY_SONG_1 "hello_there"
+#define MY_SONG_2 "i_love_cake"
+#define MY_SONG_3 "get_bonus"
 
-#define LDR_LEFT_PIN 8            // left lightsensor pin
-#define LDR_RIGHT_PIN 9           // right lightsensor pin
+#define I2S_MIC_SCK_PIN 1 // clockPin
+#define I2S_MIC_WS_PIN 7  // wordSelectPin
+#define I2S_MIC_SD_PIN 10 // channelSelectPin
 
-#define SAMPLE_RATE 20000         // recording quality 20khz (20.000 samples per second)
-#define SAMPLE_BUFFER_SIZE 40000  // size of the audio buffer, 2 seconds ( 2 * 20.000 = 40000 samples)
+#define SDCARD_CS_PIN 6 // sdcard chip select pin
 
-#define NUM_LEDS 8                // the ledring uses 8 leds
+#define AUDIO_OUT_PIN 11 // amplifier / speaker pin
+#define BUTTON_PIN 17    // button pin
+#define LEDRING_PIN 43   // ledring data pin
 
+#define LDR_LEFT_PIN 8  // left lightsensor pin
+#define LDR_RIGHT_PIN 9 // right lightsensor pin
+
+#define NUM_LEDS 8 // the ledring uses 8 leds
+
+uint32_t randomness = 0;
 
 // Create an array/list to store 8 colors for the ledring.
-Color leds[NUM_LEDS];       
-int activeLed = 0;
+Color leds[NUM_LEDS];
 
 // Create a button object (with debouncing).
 Bounce2::Button Button1 = Bounce2::Button();
@@ -35,192 +44,382 @@ WS2812 ledRing;
 // Create a sd card object.
 SDCard sdCard;
 
+// Create a boolean variable to remember if an sd card is present.
+bool hasSDCard = false;
+
 // Create a microphone object.
 i2sMic microphone;
 
-// Create a 32bits buffer to store audio.
-int32_t audioBuffer[SAMPLE_BUFFER_SIZE]; 
-
-// Create a boolean to remember if an sd card is present.
-bool hasSDCard = false;
-
-// Create a value to keep track of elapsed time.
-unsigned long log_timer=0;
-
 // Create a value to keep track of the recordings we store
-unsigned int fileIndex=0;
+uint32_t recordIndex = 0;
 
 // Define a series of notes. (Cminor7 chord)
-int notes[] = { 
-  NOTE_C2, NOTE_DS2, NOTE_G2, NOTE_AS2, 
-  NOTE_C3, NOTE_DS3, NOTE_G3, NOTE_AS3, 
-  NOTE_C4, NOTE_DS4, NOTE_G4, NOTE_AS4, 
-  NOTE_C5, NOTE_DS5, NOTE_G5, NOTE_AS5, 
-  NOTE_C6
-};
+int notes[] = {
+    NOTE_C2, NOTE_CS2, NOTE_D2, NOTE_DS2, NOTE_E2, NOTE_F2, NOTE_FS2, NOTE_G2, NOTE_GS2, NOTE_A2, NOTE_AS2, NOTE_B2,
+    NOTE_C3, NOTE_CS3, NOTE_D3, NOTE_DS3, NOTE_E3, NOTE_F3, NOTE_FS3, NOTE_G3, NOTE_GS3, NOTE_A3, NOTE_AS3, NOTE_B3,
+    NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4, NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4, NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4,
+    NOTE_C5, NOTE_CS5, NOTE_D5, NOTE_DS5, NOTE_E5, NOTE_F5, NOTE_FS5, NOTE_G5, NOTE_GS5, NOTE_A5, NOTE_AS5, NOTE_B5,
+    NOTE_C6, NOTE_CS6, NOTE_D6, NOTE_DS6, NOTE_E6, NOTE_F6, NOTE_FS6, NOTE_G6, NOTE_GS6, NOTE_A6, NOTE_AS6, NOTE_B6,
+    NOTE_C7, 0, 0, 0, 0, 0, 0};
 
+int numNotes = 53;
 
-String noteNames[] = {
-  "C2", "D#2", "G2", "A#2",
-  "C3", "D#3", "G3", "A#3",
-  "C4", "D#4", "G4", "A#4",
-  "C5", "D#5", "G5", "A#5",
-  "C6"
-};
+void playMySong1()
+{
+    Tone(AUDIO_OUT_PIN, NOTE_C3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_C4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_D3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_D4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_DS3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_DS4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_F3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_F4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_G3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_G4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_GS3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_GS4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_AS3, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_AS4, 60);
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_C4, 60);
+    Tone(AUDIO_OUT_PIN, NOTE_C5, 60);
+  }
 
-
-
-void setup(){
-
-  // Setup LightSensors
-  pinMode(LDR_LEFT_PIN,INPUT);
-  pinMode(LDR_RIGHT_PIN,INPUT);
-
-  // Setup LedRing
-  pinMode(LEDRING_PIN, OUTPUT);
-  ledRing.init(LEDRING_PIN, leds, NUM_LEDS);
-
-  // Turn all leds off
-  ledRing.clear();
-  ledRing.update();
-
-  // Setup microphone
-  microphone.setup(SAMPLE_RATE, SAMPLE_BUFFER_SIZE, I2S_MIC_SCK_PIN, I2S_MIC_WS_PIN, I2S_MIC_SD_PIN);
-
-  // Setup printing to serial monitor
-  Serial.begin(115200);
-  Serial.println("\n--------------------");
-
-  // Set up Button
-  Button1.attach(BUTTON_PIN, INPUT_PULLDOWN);
-  // Set debounce time
-  Button1.interval(10);
-  Button1.setPressedState(HIGH); 
-
-  // Setup audio output
-  pinMode(AUDIO_OUT_PIN, OUTPUT);
-  analogWriteResolution(AUDIO_OUT_PIN, 10);
-
-  // Try to mount the SD Card and remember if it is present
-  hasSDCard = sdCard.setup(SDCARD_CS_PIN);
-
-  delay(1000);
-
-  Serial.println();
-  Serial.println("Press button to record a set of long and short tones.");
-  Serial.println();
-
-  // prime the timer (set it to current time)
-  log_timer = millis();
+void playMySong2()
+{
+    for (int loop = 0; loop < 50; loop++)
+    {
+        Tone(AUDIO_OUT_PIN, 800 - loop * 5, 15);
+        Silence(15);
+    }
 }
 
-void loop(){
-  Button1.update();
+void playMySong3()
+{
+    for (int loop = 0; loop < 4; loop++)
+    {
+        Tone(AUDIO_OUT_PIN, NOTE_C4, 30);
+        Tone(AUDIO_OUT_PIN, NOTE_DS4, 30);
+        Tone(AUDIO_OUT_PIN, NOTE_G4, 30);
+    }
 
-  if(Button1.pressed()) {  // Returns true if the button was pressed
-      if (fileIndex % 8 == 0) {
-        ledRing.clear();
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_C3, 90);
+    Silence(30);
+
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_G2, 90);
+    Silence(30);
+
+    for (int loop = 0; loop < 4; loop++)
+    {
+        Tone(AUDIO_OUT_PIN, NOTE_C4, 30);
+        Tone(AUDIO_OUT_PIN, NOTE_DS4, 30);
+        Tone(AUDIO_OUT_PIN, NOTE_G4, 30);
+    }
+
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_C3, 90);
+    Silence(30);
+
+    Silence(30);
+    Tone(AUDIO_OUT_PIN, NOTE_G2, 90);
+    Silence(30);
+
+    for (int loop = 0; loop < 8; loop++)
+    {
+        Tone(AUDIO_OUT_PIN, NOTE_C5, 30);
+        Tone(AUDIO_OUT_PIN, NOTE_AS4, 30);
+        Tone(AUDIO_OUT_PIN, NOTE_G5, 30);
+    }
+}
+
+void playRandomSong(int lengthMax)
+{
+    int maxToneLength = lengthMax;
+    int choice = random(0, 3);
+    if (choice == 0)
+        maxToneLength = 100;
+    if (choice == 1)
+        maxToneLength = 350;
+    if (choice == 2)
+        maxToneLength = 1250;
+
+    bool done = false;
+
+    while (!done)
+    {
+        int duration = random(2, maxToneLength + 3);
+
+        if (lengthMax - duration <= 0)
+        {
+            duration = lengthMax;
+            done = true;
+        }
+
+        lengthMax -= duration;
+
+        int note = random(0, numNotes);
+        Tone(AUDIO_OUT_PIN, notes[note], duration);
+    }
+}
+
+void setup()
+{
+    // Setup LightSensors
+    pinMode(LDR_LEFT_PIN, INPUT);
+    pinMode(LDR_RIGHT_PIN, INPUT);
+
+    // Setup LedRing
+    pinMode(LEDRING_PIN, OUTPUT);
+    ledRing.init(LEDRING_PIN, leds, NUM_LEDS);
+    ledRing.clear();
+    ledRing.update();
+
+    // Setup microphone
+    microphone.setup(I2S_MIC_SCK_PIN, I2S_MIC_WS_PIN, I2S_MIC_SD_PIN);
+
+    // Set up Button
+    Button1.attach(BUTTON_PIN, INPUT_PULLDOWN);
+    // Set debounce time
+    Button1.interval(10);
+    Button1.setPressedState(HIGH);
+
+    // Try to mount the SD Card and remember if it is present
+    hasSDCard = sdCard.setup(SDCARD_CS_PIN);
+
+
+
+    // load the last used recording index from the device EEPROM
+    recordIndex = restoreIndex();
+
+    // Setup audio output
+    pinMode(AUDIO_OUT_PIN, OUTPUT);
+
+    // Setup printing to serial monitor
+    Serial.begin(115200);
+    Serial.println();
+    Serial.println("--------------------");
+    Serial.println("* Dataset Recorder *");
+    Serial.println();
+    Serial.println("Press button to record.");
+    Serial.println();
+}
+
+void loop()
+{
+    Button1.update();
+
+    if (Button1.pressed())
+    { // Returns true if the button was pressed
+        if (recordIndex % 8 == 0)
+        {
+            ledRing.clear();
+            ledRing.update();
+        }
+
+        // wait 1 second before starting with recording
+        delay(1000);
+
+        // Set LED to RED
+        ledRing[recordIndex % 8] = Color::Red;
         ledRing.update();
-      }
 
-      // wait 1 second before starting with recording
-      delay(1000); 
-      ledRing[fileIndex%8].hex=0xFF0000;
-      ledRing.update();
+        // Set the randomness for this recording session
+        randomness = random(4);
 
-      // record short tones
+        //--------- Record our song #1
+        // Start recording and play random tones.
+        microphone.startRecording();
 
-      for (int note=0; note < sizeof(notes)/sizeof(notes[0]); note++) {
-        // Set note frequency.
-        analogWriteFrequency(AUDIO_OUT_PIN, notes[note]);
+        // Record 400 milliseconds of ambient noise / silence before starting the song.
+        delay(400); 
 
-        // Start recording (500ms) in the background
-        microphone.startRecord(audioBuffer, 500);
+        playMySong1();
 
-        // Turn audio on.
-        analogWrite(AUDIO_OUT_PIN, 512);
+        // Record 400 milliseconds of ambient noise / silence before starting the song.
+        delay(400); 
 
-        // Wait 100 miliseconds.
-        delay(100);
+        // stop and wait for recording to finish.
+        microphone.stopRecording();
 
-        // Sound off.
-        analogWrite(AUDIO_OUT_PIN, 0);
-
-        // wait until recording is done
-        while (!microphone.isRecordDone()) {
-          delay(10);
-        }
-
-        // Get number of samples recorded
-        int numSamplesRecorded = microphone.getNumSamplesRecorded();
-
-        // Print number of samples that are recorded.
-        Serial.print(numSamplesRecorded);
-        Serial.println(" samples recorded.");
+        // Print recording statistics.
+        Serial.print(microphone.getLength());
+        Serial.println(" miliseconds recorded, ");
 
         // save the recorded audio to the SDCard (if present)
-        if (hasSDCard) {
-
-          // Create a filename with the format: /c4_short_0001.wav 
-          String filename = sdCard.makeFilename(noteNames[note] + "_short", fileIndex);
-
-          Serial.print("Saving on SDCard as:");
-          Serial.println(filename);
-
-          sdCard.writeWavFile(filename, audioBuffer, numSamplesRecorded, SAMPLE_RATE);
-        }      
-        Serial.println();
-
-      }
-
-      // record long tones
-      for (int note=0; note < sizeof(notes)/sizeof(notes[0]); note++) {
-
-        // Set note frequency.
-        analogWriteFrequency(AUDIO_OUT_PIN, notes[note]);
-
-        // Start recording 1 second in the background
-        microphone.startRecord(audioBuffer, 1000);
-
-        // Turn audio on.
-        analogWrite(AUDIO_OUT_PIN, 512);
-
-        // Wait 600 miliseconds.
-        delay(500);
-
-        // Sound off.
-        analogWrite(AUDIO_OUT_PIN, 0);
-
-        // wait until recording is done
-        while (!microphone.isRecordDone()) {
-          delay(10);
+        if (hasSDCard)
+        {
+            // write the audio file
+            String filename = sdCard.writeAudioFile(
+                microphone.getData(), 
+                microphone.getLength(),
+                MY_SONG_1, 
+                MY_DEVICE, 
+                recordIndex
+            );
         }
 
-        // Get number of samples recorded
-        int numSamplesRecorded = microphone.getNumSamplesRecorded();
+        Serial.println();
 
-        // Print number of samples that are recorded.
-        Serial.print(numSamplesRecorded);
-        Serial.println(" samples recorded.");
+        // pause 1 second
+        delay(1000);
+
+        //--------- Record our song #2
+
+        // Start recording and play random tones.
+        microphone.startRecording();
+
+        // Record 400 milliseconds of ambient noise / silence before starting the song.
+        delay(400); 
+
+        playMySong2();
+
+        // Record 400 milliseconds of ambient noise / silence after the melody.
+        delay(400); 
+
+        // stop and wait for recording to finish.
+        microphone.stopRecording();
+
+        // Print recording statistics.
+        Serial.print(microphone.getLength());
+        Serial.println(" miliseconds recorded, ");
 
         // save the recorded audio to the SDCard (if present)
-        if (hasSDCard) {
+        if (hasSDCard)
+        {
 
-          // Create a filename with the format: /c4_short_0001.wav 
-          String filename = sdCard.makeFilename(noteNames[note] + "_long", fileIndex);
+            // Create a filename with the format: /random.0001.wav
+            String filename = sdCard.makeNewFilename(MY_SONG_2, MY_DEVICE, recordIndex);
 
-          Serial.print("Saving on SDCard as:");
-          Serial.println(filename);
+            Serial.print("Saving on SDCard as: ");
+            Serial.println(filename);
 
-          sdCard.writeWavFile(filename, audioBuffer, numSamplesRecorded, SAMPLE_RATE);
-        }     
+            // write the audio file
+            sdCard.writeWavFile(filename, microphone.getData(), microphone.getLength());
+        }
         Serial.println();
-      }
+        // pause 1/2 seconds
+        delay(1000);
 
-      ledRing[fileIndex%8]=Color::Green;
-      ledRing.update();
+        //--------- Record our song #3
 
-      fileIndex++;
+        // Start recording and play random tones.
+        microphone.startRecording();
 
-  } 
+        playMySong3();
+
+        // Add some space to the end and stop the timer, calculate the length of the recording
+        delay(30);
+
+        // stop and wait for recording to finish.
+        microphone.stopRecording();
+
+        // Print recording statistics.
+        Serial.print(microphone.getLength());
+        Serial.println(" miliseconds recorded, ");
+
+        // save the recorded audio to the SDCard (if present)
+        if (hasSDCard)
+        {
+
+            // Create a filename with the format: /random.0001.wav
+            String filename = sdCard.makeNewFilename(MY_SONG_3, MY_DEVICE, recordIndex);
+
+            Serial.print("Saving on SDCard as: ");
+            Serial.println(filename);
+
+            // write the audio file
+            sdCard.writeWavFile(filename, microphone.getData(), microphone.getLength());
+        }
+        Serial.println();
+        // pause 1/2 seconds
+        delay(1000);
+
+        //--------- Record random notes
+
+        // Start recording and play random tones.
+        microphone.startRecording();
+
+        // Record 400 milliseconds of ambient noise / silence before starting the song.
+        delay(400); 
+
+        playRandomSong(2000);
+
+        // Record 400 milliseconds of ambient noise / silence before starting the song.
+        delay(400); 
+
+        // stop and wait for recording to finish.
+        microphone.stopRecording();
+
+        // Print recording statistics.
+        Serial.print(microphone.getLength());
+        Serial.println(" miliseconds recorded, ");
+
+        // save the recorded audio to the SDCard (if present)
+        if (hasSDCard)
+        {
+
+            // Create a filename with the format: /random.0001.wav
+            String filename = sdCard.makeNewFilename("random", MY_DEVICE, recordIndex);
+
+            Serial.print("Saving on SDCard as: ");
+            Serial.println(filename);
+
+            // write the audio file
+            sdCard.writeWavFile(filename, microphone.getData(), microphone.getLength());
+        }
+        Serial.println();
+        // pause 1/2 seconds
+        delay(1000);
+
+        //--------- Record noise / silence
+
+        // Start recording and play random tones.
+        microphone.startRecording();
+
+        // wait for 3 seconds (this will be split up during training)
+        delay(3000);
+
+        // stop and wait for recording to finish.
+        microphone.stopRecording();
+
+        // Print recording statistics.
+        Serial.print(microphone.getLength());
+        Serial.println(" miliseconds recorded, ");
+
+
+        // save the recorded audio to the SDCard (if present)
+        if (hasSDCard)
+        {
+
+            // Create a filename with the format: /random.device0001.wav
+            String filename = sdCard.makeNewFilename("noise", MY_DEVICE, recordIndex);
+
+            Serial.print("Saving on SDCard as: ");
+            Serial.println(filename);
+
+            // write the audio file
+            sdCard.writeWavFile(filename, microphone.getData(), microphone.getLength());
+        }
+        Serial.println();
+
+        // Set this led to green
+        ledRing[recordIndex % 8] = Color::Green;
+        ledRing.update();
+
+        // increase our index for the next recording
+        // so each of our files will have a unique name
+        recordIndex++;
+
+        // store the last used recording index into the device EEPROM
+        storeIndex(recordIndex);
+
+    }
 }

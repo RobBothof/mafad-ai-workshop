@@ -1,0 +1,9 @@
+{
+  "folders": [
+    { "path": "." },
+    { "path": "pio/record_dataset_pio" }
+  ],
+  "settings": {
+    "cSpell.enabled": false
+  }
+}
