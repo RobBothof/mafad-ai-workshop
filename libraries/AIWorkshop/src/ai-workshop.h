@@ -115,7 +115,7 @@ private:
     volatile bool _done = false;
     volatile uint32_t _samplesRecorded = 0;
 
-    uint32_t _recLength = 0;
+    volatile uint32_t _recLength = 0;
     size_t _recTimer = 0;
 
     // PSRAM buffer pointer
@@ -129,13 +129,12 @@ private:
     {
         i2sMic *_mic = static_cast<i2sMic *>(parameter);
         
-        size_t samplesRecorded = 0;
-        size_t samplesNeeded=0;
+        uint32_t samplesRecorded = 0;
 
         while (samplesRecorded < SAMPLE_BUFFER_SIZE)
         {
             size_t bytes_read = 0;
-            size_t samplesToRead = SAMPLE_BUFFER_SIZE - samplesRecorded;
+            uint32_t samplesToRead = SAMPLE_BUFFER_SIZE - samplesRecorded;
             if (samplesToRead > DMA_BUFFER_SIZE)
                 samplesToRead = DMA_BUFFER_SIZE;
 
@@ -153,7 +152,12 @@ private:
             samplesRecorded += bytes_read / sizeof(int32_t);
         }
 
-        _mic->_samplesRecorded = static_cast<int>(samplesRecorded);
+        // Check if already stopped
+        if (_mic->_recLength == 0) {
+            _mic->_recLength = (uint32_t)((samplesRecorded * 1000ULL) / SAMPLE_RATE);  
+        }
+
+        _mic->_samplesRecorded = samplesRecorded;
         _mic->_done = true;
         _mic->_task = nullptr;
 
@@ -183,6 +187,8 @@ public:
             return false;
         }
 
+        data = _psramBuffer;
+
         _dmaBuffer = (int32_t *)heap_caps_malloc(
             (size_t)DMA_BUFFER_SIZE * sizeof(int32_t),
             MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
@@ -198,7 +204,7 @@ public:
             .sample_rate = SAMPLE_RATE,
             .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
             .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-            .communication_format = I2S_COMM_FORMAT_I2S,
+            .communication_format = I2S_COMM_FORMAT_STAND_I2S,
             .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
             .dma_buf_count = 4,
             .dma_buf_len = 64,
@@ -243,9 +249,25 @@ public:
 
     bool stopRecording()
     {
-        if (_task == nullptr && _recLength != 0)
-            return false; // not recording
-        _recLength = millis() - _recTimer;
+        // Never started
+        if (_recTimer == 0) {
+            return false;
+        }
+
+        uint32_t t = (uint32_t)(millis() - _recTimer);
+        uint32_t maxMs = (uint32_t)((SAMPLE_BUFFER_SIZE * 1000ULL) / SAMPLE_RATE);        
+        if (t > maxMs) t = maxMs;
+
+        // Check if already stopped
+        if (_recLength == 0) {
+            _recLength = t;
+        }
+
+        // not recording or finished
+        if (_task == nullptr) {
+            return _done; 
+        }
+
         // wait for task to finish
         while (!_done)
         {
@@ -263,12 +285,13 @@ public:
         _recLength = 0;
         _done = false;
 
+        _recTimer = millis();
+
         if (pdPASS != xTaskCreatePinnedToCore(recordTask, "i2sMicRec", 4096, this, 2, &_task, 0))
         {
             _task = nullptr;
             return false;
         }
-        _recTimer = millis();
         return true;
     }
 };
@@ -290,7 +313,7 @@ private:
         uint32_t b4 = 0;
         uint16_t b2 = 0;
         f.print("RIFF");
-        b4 = numSamples * 2 + 44;
+        b4 = numSamples * 2 + 44 - 8; // exclude 'RIFF' and filesize field
         f.write((byte *)&b4, 4); // filesize
         f.print("WAVE");
         f.print("fmt ");
@@ -308,7 +331,7 @@ private:
         b2 = 16;
         f.write((byte *)&b2, 2); // bits per sample
         f.print("data");
-        b4 = numSamples * 2 + 44;
+        b4 = numSamples * 2;
         f.write((byte *)&b4, 4); // data length in bytes
     }
 
@@ -322,7 +345,7 @@ private:
         return result;
     }
 
-    bool writeWavFile(const char *waveFileName, int32_t *sampleBuffer, uint32_t sampleOffset, uint32_t sampleWindowSize=20000)
+    bool writeCroppedFiles(const char *waveFileName, int32_t *sampleBuffer, uint32_t sampleOffset, uint32_t sampleWindowSize=20000)
     {
         if (waveFileName == nullptr || sampleBuffer == nullptr || sampleWindowSize == 0)
         {
@@ -339,6 +362,9 @@ private:
             sampleOffset = SAMPLE_BUFFER_SIZE - sampleWindowSize;
         }
 
+        if (SD.exists(waveFileName)) {
+            SD.remove(waveFileName);
+        }
 
         File file = SD.open(waveFileName, FILE_WRITE);
         if (!file)
@@ -362,6 +388,50 @@ private:
         return true;
     }
     
+    static bool ensureDir(const char* path)
+    {
+        if (SD.exists(path)) return true;
+        return SD.mkdir(path);
+    }
+    
+    bool writeMasterFile(const char *waveFileName, int32_t *sampleBuffer, uint32_t numSamples)
+    {
+        if (waveFileName == nullptr || sampleBuffer == nullptr || numSamples == 0)
+        {
+            return false;
+        }
+
+        if (numSamples > SAMPLE_BUFFER_SIZE)
+        {
+            numSamples = SAMPLE_BUFFER_SIZE;
+        }
+
+        if (SD.exists(waveFileName)) {
+            SD.remove(waveFileName);
+        }
+
+        File file = SD.open(waveFileName, FILE_WRITE);
+        if (!file)
+        {
+            Serial.println("Failed to open file for writing");
+            return false;
+        }
+
+        // Write the WAV audio header.
+        writeWavHeader(file, numSamples, SAMPLE_RATE);
+
+        // Write the samples.
+        for (uint s = 0; s < numSamples; s++)
+        {
+            int16_t sample = clip32(sampleBuffer[s] / 4096);
+            file.write((byte *)&sample, 2);
+        }
+
+        // Close the file.
+        file.close();
+        return true;
+    }
+
 public:
     // Constructors
     SDCard() {}
@@ -428,29 +498,48 @@ public:
         Serial.printf("%lluMB of %lluMB in use.\n\n", SD.usedBytes() / (1024 * 1024), SD.totalBytes() / (1024 * 1024));
     }
 
-    void writeAudioFile(int32_t *sampleBuffer, uint32_t duration, String baseName, String deviceName, uint32_t fileIndex, int digits = 6)
+
+    void writeAudioFile(int32_t *sampleBuffer, uint32_t duration, String baseName, String deviceName, uint32_t fileIndex, bool saveCrops=true)
     {
-        const uint32_t numSamples = (duration * SAMPLE_RATE) / 1000;
+        uint32_t numSamples = (duration * SAMPLE_RATE) / 1000;
+
+        if (numSamples > SAMPLE_BUFFER_SIZE) numSamples = SAMPLE_BUFFER_SIZE;
+
+        ensureDir("/master");
+
+        // Save full file
+        String masterName = "/master/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + ".wav";  
+        writeMasterFile(masterName.c_str(), sampleBuffer, numSamples);
+        Serial.println("Wrote master file: " + masterName); 
+
+        if (!saveCrops) {
+            return;
+        }
+
+        ensureDir("/crops");
+
+        // Save cropped files
 
         // Edge case: not enough audio to make a 1s crop
         if (numSamples < NN_WINDOW_SIZE) {
             return;
         }
+
         uint32_t sampleMargin = numSamples - NN_WINDOW_SIZE;
 
         uint maxCrops = sampleMargin / CROP_OFFSET + 1; // every 100 ms
 
         uint crops = 8;
 
-        // pick a 8 random crops within maxCrops
+        // pick a 8 crops within maxCrops
         if (crops > maxCrops) crops = maxCrops;
 
         if (crops <= 1) {
             
             uint32_t offset = sampleMargin / 2;
 
-            String name = "/" + baseName + "." + deviceName + padZeros(fileIndex, digits) + "_0000.wav"; 
-            writeWavFile(name.c_str(), sampleBuffer, offset, NN_WINDOW_SIZE);
+            String name = "/crops/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + "_" + padZeros(offset, 4) + ".wav";  
+            writeCroppedFiles(name.c_str(), sampleBuffer, offset, NN_WINDOW_SIZE);
         
             Serial.println("Wrote file: " + name);
             return;
@@ -463,8 +552,8 @@ public:
 
             uint32_t offset = idx * CROP_OFFSET;
 
-            String name = "/" + baseName + "." + deviceName + padZeros(fileIndex, digits) + "_" + padZeros(offset, 4) + ".wav"; 
-            writeWavFile(name.c_str(), sampleBuffer, offset, NN_WINDOW_SIZE);
+            String name = "/crops/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + "_" + padZeros(offset, 4) + ".wav"; 
+            writeCroppedFiles(name.c_str(), sampleBuffer, offset, NN_WINDOW_SIZE);
         
             Serial.println("Wrote file: " + name);
         }
