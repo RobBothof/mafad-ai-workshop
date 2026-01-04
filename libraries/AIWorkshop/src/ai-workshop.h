@@ -49,7 +49,8 @@ static void Silence(uint32_t ms)
     }
 }
 
-static void Tone(uint8_t pin, unsigned int frequency, unsigned long duration)
+
+static void startTone(uint8_t pin, unsigned int frequency)
 {
     const uint8_t bits = 12;
     static int8_t attachedPin = -1;
@@ -65,45 +66,56 @@ static void Tone(uint8_t pin, unsigned int frequency, unsigned long duration)
     if (duty > maxDuty)
         duty = maxDuty;
 
+    uint8_t ch_pin = 7;
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
-    // Arduino-ESP32 core v3.x (pin-based LEDC)
-    if (attachedPin != (int8_t)pin)
+// Arduino-ESP32 core v3.x (pin-based LEDC)
+    ch_pin = pin;
+    if (attachedPin != ch_pin)
     {
         if (attachedPin >= 0)
             ledcDetach((uint8_t)attachedPin);
         ledcAttach(pin, 1000 /*dummy*/, bits);
-        attachedPin = (int8_t)pin;
+        attachedPin = ch_pin;
     }
-
-    ledcChangeFrequency(pin, f, bits);
-    ledcWrite(pin, duty);
-    Silence((uint32_t)duration);
-    ledcWrite(pin, 0);
-
 #else
     // Arduino-ESP32 core v2.x (channel-based LEDC)
-    const uint8_t ch = 7;
-    static bool inited = false;
+    static bool initialized = false;
 
-    if (!inited)
+    if (!initialized)
     {
-        ledcSetup(ch, 1000 /*dummy*/, bits);
-        inited = true;
+        ledcSetup(ch_pin, 1000 /*dummy*/, bits);
+        initialized = true;
     }
 
-    if (attachedPin != (int8_t)pin)
+    if (attachedPin != pin)
     {
         if (attachedPin >= 0)
             ledcDetachPin((uint8_t)attachedPin);
-        ledcAttachPin(pin, ch);
-        attachedPin = (int8_t)pin;
+        ledcAttachPin(pin, ch_pin);
+        attachedPin = pin;
     }
 
-    ledcChangeFrequency(ch, (double)f, bits);
-    ledcWrite(ch, duty);
-    Silence((uint32_t)duration);
+#endif
+
+    ledcChangeFrequency(ch_pin, f, bits);
+    ledcWrite(ch_pin, duty);
+}
+
+static void stopTone(uint8_t pin)
+{
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+    ledcWrite(pin, 0);
+#else
+    const uint8_t ch = 7;
     ledcWrite(ch, 0);
 #endif
+}
+
+static void playTone(uint8_t pin, unsigned int frequency, unsigned long duration)
+{
+    startTone(pin, frequency);
+    Silence((uint32_t)duration);
+    stopTone(pin);
 }
 
 class i2sMic

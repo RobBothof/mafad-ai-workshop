@@ -1,7 +1,8 @@
 {
   "folders": [
     { "path": "." },
-    { "path": "pio/record_dataset_pio" }
+    { "path": "pio/record_dataset_pio" },
+    { "path": "pio/test_and_record_pio" }
   ],
   "settings": {
     "cSpell.enabled": false

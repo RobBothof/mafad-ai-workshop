@@ -1,0 +1,16 @@
+{
+  // Disable PlatformIO as the config provider for the MS C/C++ extension in THIS folder
+  "C_Cpp.default.configurationProvider": "",
+
+  // Use PlatformIO-generated compile database
+  "C_Cpp.default.compileCommands": "/home/robber/kabk-ai-workshop/pio/test_and_record_pio/compile_commands.json",
+
+  // Force-include the shim so IntelliSense knows the overloads exist
+  "C_Cpp.default.forcedInclude": [
+    "/home/robber/kabk-ai-workshop/pio/test_and_record_pio/src/esp-compat.h"
+  ],
+
+  "files.associations": {
+    "*.ino": "cpp"
+  }
+}

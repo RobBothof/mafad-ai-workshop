@@ -1,32 +1,30 @@
-
 #include <Bounce2.h>
 
 #include <ai-workshop-WS2812.h>
-#include <ai-workshop.h>
 #include <ai-workshop-pitches.h>
+#include <ai-workshop.h>
 
 #define MY_DEVICE "MAFAD"
 #define MY_MELODY_1 "hello_there"
 #define MY_MELODY_2 "i_love_cake"
 #define MY_MELODY_3 "get_bonus"
 
-#define I2S_MIC_SCK_PIN 1   // clockPin
-#define I2S_MIC_WS_PIN 7    // wordSelectPin
-#define I2S_MIC_SD_PIN 10   // channelSelectPin
+#define I2S_MIC_SCK_PIN 1 // clockPin
+#define I2S_MIC_WS_PIN 7  // wordSelectPin
+#define I2S_MIC_SD_PIN 10 // channelSelectPin
 
-#define SDCARD_CS_PIN 6     // sdcard chip select pin
+#define SDCARD_CS_PIN 6 // sdcard chip select pin
 
-#define AUDIO_OUT_PIN 11    // amplifier / speaker pin
-#define BUTTON_PIN 17       // button pin
-#define LEDRING_PIN 43      // ledring data pin
+#define AUDIO_OUT_PIN 11 // amplifier / speaker pin
+#define BUTTON_PIN 17    // button pin
+#define LEDRING_PIN 43   // ledring data pin
 
-#define LDR_LEFT_PIN 8      // left lightsensor pin
-#define LDR_RIGHT_PIN 9     // right lightsensor pin
+#define LDR_LEFT_PIN 8  // left lightsensor pin
+#define LDR_RIGHT_PIN 9 // right lightsensor pin
 
-#define NUM_LEDS 8          // the ledring uses 8 leds
+#define NUM_LEDS 8 // the ledring uses 8 leds
 
-#define CREATE_CROPS true   // create cropped audio files around the sound event
-
+#define CREATE_CROPS true // create cropped audio files around the sound event
 
 uint32_t randomness = 0;
 
@@ -58,42 +56,40 @@ int notes[] = {
     NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4, NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4, NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4,
     NOTE_C5, NOTE_CS5, NOTE_D5, NOTE_DS5, NOTE_E5, NOTE_F5, NOTE_FS5, NOTE_G5, NOTE_GS5, NOTE_A5, NOTE_AS5, NOTE_B5,
     NOTE_C6, NOTE_CS6, NOTE_D6, NOTE_DS6, NOTE_E6, NOTE_F6, NOTE_FS6, NOTE_G6, NOTE_GS6, NOTE_A6, NOTE_AS6, NOTE_B6,
-    NOTE_C7, 0, 0, 0, 0, 0, 0
-};
-
+    NOTE_C7, 0, 0, 0, 0, 0, 0};
 
 void playMelody1()
 {
-    Tone(AUDIO_OUT_PIN, NOTE_C3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_C4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_C3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_C4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_D3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_D4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_D3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_D4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_DS3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_DS4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_DS3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_DS4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_F3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_F4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_F3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_F4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_G3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_G4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_G3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_G4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_GS3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_GS4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_GS3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_GS4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_AS3, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_AS4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_AS3, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_AS4, 60);
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_C4, 60);
-    Tone(AUDIO_OUT_PIN, NOTE_C5, 60);
-  }
+    playTone(AUDIO_OUT_PIN, NOTE_C4, 60);
+    playTone(AUDIO_OUT_PIN, NOTE_C5, 60);
+}
 
 void playMelody2()
 {
     for (int loop = 0; loop < 50; loop++)
     {
-        Tone(AUDIO_OUT_PIN, 800 - loop * 5, 15);
+        playTone(AUDIO_OUT_PIN, 800 - loop * 5, 15);
         Silence(15);
     }
 }
@@ -102,39 +98,39 @@ void playMelody3()
 {
     for (int loop = 0; loop < 4; loop++)
     {
-        Tone(AUDIO_OUT_PIN, NOTE_C4, 30);
-        Tone(AUDIO_OUT_PIN, NOTE_DS4, 30);
-        Tone(AUDIO_OUT_PIN, NOTE_G4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_C4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_DS4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_G4, 30);
     }
 
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_C3, 90);
+    playTone(AUDIO_OUT_PIN, NOTE_C3, 90);
     Silence(30);
 
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_G2, 90);
+    playTone(AUDIO_OUT_PIN, NOTE_G2, 90);
     Silence(30);
 
     for (int loop = 0; loop < 4; loop++)
     {
-        Tone(AUDIO_OUT_PIN, NOTE_C4, 30);
-        Tone(AUDIO_OUT_PIN, NOTE_DS4, 30);
-        Tone(AUDIO_OUT_PIN, NOTE_G4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_C4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_DS4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_G4, 30);
     }
 
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_C3, 90);
+    playTone(AUDIO_OUT_PIN, NOTE_C3, 90);
     Silence(30);
 
     Silence(30);
-    Tone(AUDIO_OUT_PIN, NOTE_G2, 90);
+    playTone(AUDIO_OUT_PIN, NOTE_G2, 90);
     Silence(30);
 
     for (int loop = 0; loop < 8; loop++)
     {
-        Tone(AUDIO_OUT_PIN, NOTE_C5, 30);
-        Tone(AUDIO_OUT_PIN, NOTE_AS4, 30);
-        Tone(AUDIO_OUT_PIN, NOTE_G5, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_C5, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_AS4, 30);
+        playTone(AUDIO_OUT_PIN, NOTE_G5, 30);
     }
 }
 
@@ -164,7 +160,7 @@ void playRandomMelody(int lengthMax)
         lengthMax -= duration;
 
         int note = random(0, sizeof(notes) / sizeof(notes[0]));
-        Tone(AUDIO_OUT_PIN, notes[note], duration);
+        playTone(AUDIO_OUT_PIN, notes[note], duration);
     }
 }
 
@@ -214,7 +210,7 @@ void loop()
     Button1.update();
 
     if (Button1.pressed())
-    { 
+    {
         // Set LED to RED
         if (recordIndex % 8 == 0)
         {
@@ -228,9 +224,9 @@ void loop()
         randomness = random(4);
 
         // Delay to not record the button click
-        delay(400); 
+        delay(400);
 
-    //--------- Record Melody #1 --------- 
+        //--------- Record Melody #1 ---------
 
         microphone.startRecording();
 
@@ -240,7 +236,7 @@ void loop()
         playMelody1();
 
         // Record 400 milliseconds of ambient noise / silence before starting the song.
-        delay(400); 
+        delay(400);
 
         // stop and wait for recording to finish.
         microphone.stopRecording();
@@ -254,10 +250,10 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(), 
+                microphone.getData(),
                 microphone.getLength(),
-                MY_MELODY_1, 
-                MY_DEVICE, 
+                MY_MELODY_1,
+                MY_DEVICE,
                 recordIndex,
                 CREATE_CROPS // create cropped files
             );
@@ -265,7 +261,7 @@ void loop()
 
         Serial.println();
 
-    //--------- Record Melody #2 --------- 
+        //--------- Record Melody #2 ---------
 
         microphone.startRecording();
 
@@ -275,7 +271,7 @@ void loop()
         playMelody2();
 
         // Record 400 milliseconds of ambient noise / silence after the melody.
-        delay(400); 
+        delay(400);
 
         // stop and wait for recording to finish.
         microphone.stopRecording();
@@ -289,17 +285,17 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(), 
+                microphone.getData(),
                 microphone.getLength(),
-                MY_MELODY_2, 
-                MY_DEVICE, 
+                MY_MELODY_2,
+                MY_DEVICE,
                 recordIndex,
                 CREATE_CROPS // create cropped files
             );
         }
         Serial.println();
 
-    //--------- Record Melody #3 --------- 
+        //--------- Record Melody #3 ---------
 
         microphone.startRecording();
 
@@ -309,7 +305,7 @@ void loop()
         playMelody3();
 
         // Record 400 milliseconds of ambient noise / silence before starting the song.
-        delay(400); 
+        delay(400);
 
         // stop and wait for recording to finish.
         microphone.stopRecording();
@@ -323,17 +319,17 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(), 
+                microphone.getData(),
                 microphone.getLength(),
-                MY_MELODY_3, 
-                MY_DEVICE, 
+                MY_MELODY_3,
+                MY_DEVICE,
                 recordIndex,
                 CREATE_CROPS // create cropped files
             );
         }
         Serial.println();
 
-    //--------- Record random Melody --------- 
+        //--------- Record random Melody ---------
 
         // Start recording and play random tones.
         microphone.startRecording();
@@ -344,7 +340,7 @@ void loop()
         playRandomMelody(2000);
 
         // Record 400 milliseconds of ambient noise / silence before starting the song.
-        delay(400); 
+        delay(400);
 
         // stop and wait for recording to finish.
         microphone.stopRecording();
@@ -358,17 +354,17 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(), 
+                microphone.getData(),
                 microphone.getLength(),
-                "random", 
-                MY_DEVICE, 
+                "random",
+                MY_DEVICE,
                 recordIndex,
                 CREATE_CROPS // create cropped files
             );
         }
         Serial.println();
 
-    //--------- Ambient noise / Silence --------- 
+        //--------- Ambient noise / Silence ---------
 
         microphone.startRecording();
 
@@ -387,10 +383,10 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(), 
+                microphone.getData(),
                 microphone.getLength(),
-                "noise", 
-                MY_DEVICE, 
+                "noise",
+                MY_DEVICE,
                 recordIndex,
                 CREATE_CROPS // create cropped files
             );
@@ -409,6 +405,5 @@ void loop()
 
         // store the last used recording index into the device EEPROM
         storeIndex(recordIndex);
-
     }
 }
