@@ -42,8 +42,7 @@
  */
 
 /* Includes ---------------------------------------------------------------- */
-#include <MAFAD_Improved_Classifier_inferencing.h>
-// #include <MAFAD_Classifier_inferencing.h>
+#include <MAFAD_Classifier_inferencing.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -168,7 +167,7 @@ void loop()
         }
     } 
 
-    if (max_index == 0 || max_index == 1 || max_index == 2 || max_index == 4) {
+    if (max_index == 0 || max_index == 1 || max_index == 2) {
         ei_printf("** top = %s ( ", result.classification[max_index].label);
         ei_printf_float(max_score);
         ei_printf(" ) **");

@@ -285,6 +285,9 @@ ilovecake:   ***--
 random:      ****-
 
 ======================================
+
+BEST MODEL:
+
 ei-mafad-improved-classifier-arduino-1.0.5
 
 Architecture changes
@@ -332,7 +335,7 @@ random:         -----
 softer sounds  ****_
 long distance   ***__
 ======================================
-GOOD:
+
 ei-mafad-improved-classifier-arduino-1.0.7
 Architecture changes
 
@@ -424,3 +427,102 @@ hello there: ***--
 ilovecake:   ***--
 get bonus:   *----
 random:      ****-
+
+
+======================================
+======================================
+
+
+======================================
+======================================
+======================================
+======================================
+New dataset (but hello_there only had 1/2 samples)
+======================================
+ei-mafad-classifier-arduino-1.0.23.zip
+
+Model:
+
+- Input layer (7,960 features)
+- Reshape layer (40 columns)
+- 2D conv / pool layer (8 filters, 5 kernel size, 1 layer)
+- Dropout (rate 0.2)
+- 2D conv / pool layer (16 filters, 3 kernel size, 1 layer)
+- Flatten layer
+- Output layer (4 classes)
+
+Master Files
+all classews
+Window size: 1000ms
+Stride: 200ms
+
+Frame length: 0.01
+Frame stride: 0.005
+Filter number: 40
+FFT length: 512
+Low frequency: 200
+High frequency: 7000
+Noise floor (dB): -75
+
+epoch: 15
+learning rate: 0.02
+CPU
+validation size: 20%
+
+validation:
+Accuracy: 85.3%
+for melody labels: 100%
+Loss: 0.4
+
+test:
+Accuracy: 76.96%
+for melody labels: 98%
+
+hello there: -----
+ilovecake:   -----
+get bonus:   -----
+random:      -----
+
+=====================================
+======================================
+ei-mafad-classifier-arduino-1.0.25.zip
+
+Model:
+
+- Input layer (7,960 features)
+- Reshape layer (40 columns)
+- 2D conv / pool layer (8 filters, 5 kernel size, 1 layer)
+- Dropout (rate 0.2)
+- 2D conv / pool layer (16 filters, 3 kernel size, 1 layer)
+- Flatten layer
+- Output layer (4 classes)
+
+Master Files
+(noise + random combined)
+Window size: 1000ms
+Stride: 200ms
+
+Frame length: 0.01
+Frame stride: 0.005
+Filter number: 40
+FFT length: 512
+Low frequency: 200
+High frequency: 7000
+Noise floor (dB): -75
+
+epoch: 15
+learning rate: 0.02
+CPU
+validation size: 20%
+
+validation:
+Accuracy: 97.2%
+Loss: 0.07
+
+test:
+Accuracy: 95.49%
+
+hello there: ***--
+ilovecake:   *****
+get bonus:   *****
+noise:       *****
