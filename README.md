@@ -20,7 +20,7 @@ The trained neural network model can listen to melodies of other machines in the
 - Basic soldering of electronics
 - Deploy code to test sensors en outputs
 - Code digital birdsong like signature sounds and melodies
-- Experiment with training and training data
+- Experiment with model training and datasets
 - Deploy and test a neural network model on embedded hardware
 - Develop communication strategies
 - Experiment and create a collaborative performance / installation
