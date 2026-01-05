@@ -18,8 +18,8 @@ public:
   union {
     struct {
       uint8_t b;
-      uint8_t r;
       uint8_t g;
+      uint8_t r;
       uint8_t x; // 8 bit spacer so we can map hex values like 0xFF00FF to r,g,b
     };
     uint32_t hex;
@@ -200,8 +200,8 @@ public:
     for (uint16_t l = 0; l < numLeds; l++) {
       for (int c = 0; c < 3; c++) {
         for (int bit = 0; bit < 8; bit++) {
-          if (c==0) led_data_value = leds[l].r;
-          if (c==1) led_data_value = leds[l].g;
+          if (c==1) led_data_value = leds[l].r;
+          if (c==0) led_data_value = leds[l].g;
           if (c==2) led_data_value = leds[l].b;
 
           if (led_data_value & (1 << (7 - bit))) {

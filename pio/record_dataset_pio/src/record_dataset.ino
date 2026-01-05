@@ -1,1 +1,1 @@
-../../../sketches/record_dataset/record_dataset.ino
+/home/robber/kabk-ai-workshop/libraries/AIWorkshop/examples/record_dataset/record_dataset.ino

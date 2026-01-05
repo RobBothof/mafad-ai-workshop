@@ -357,21 +357,21 @@ private:
         return result;
     }
 
-    bool writeCroppedFiles(const char *waveFileName, int32_t *sampleBuffer, uint32_t sampleOffset, uint32_t sampleWindowSize=20000)
+    bool writeCroppedFiles(const char *waveFileName, int32_t *sampleBuffer, uint32_t sampleOffset, uint32_t numSamples=NN_WINDOW_SIZE)
     {
-        if (waveFileName == nullptr || sampleBuffer == nullptr || sampleWindowSize == 0)
+        if (waveFileName == nullptr || sampleBuffer == nullptr || numSamples == 0)
         {
             return false;
         }
 
-        if (sampleWindowSize > SAMPLE_BUFFER_SIZE)
+        if (numSamples > SAMPLE_BUFFER_SIZE)
         {
-            sampleWindowSize = SAMPLE_BUFFER_SIZE;
+            numSamples = SAMPLE_BUFFER_SIZE;
         }
 
-        if (sampleOffset + sampleWindowSize > SAMPLE_BUFFER_SIZE)
+        if (sampleOffset + numSamples > SAMPLE_BUFFER_SIZE)
         {
-            sampleOffset = SAMPLE_BUFFER_SIZE - sampleWindowSize;
+            sampleOffset = SAMPLE_BUFFER_SIZE - numSamples;
         }
 
         if (SD.exists(waveFileName)) {
@@ -386,10 +386,10 @@ private:
         }
 
         // Write the WAV audio header.
-        writeWavHeader(file, sampleWindowSize, SAMPLE_RATE);
+        writeWavHeader(file, numSamples, SAMPLE_RATE);
 
         // Write the samples.
-        for (uint s = sampleOffset; s < sampleOffset + sampleWindowSize; s++)
+        for (uint s = sampleOffset; s < sampleOffset + numSamples; s++)
         {
             int16_t sample = clip32(sampleBuffer[s] / 4096);
             file.write((byte *)&sample, 2);
@@ -511,11 +511,20 @@ public:
     }
 
 
-    void writeAudioFile(int32_t *sampleBuffer, uint32_t duration, String baseName, String deviceName, uint32_t fileIndex, bool saveCrops=true)
+    void writeAudioFile(int32_t *sampleBuffer, uint32_t duration, String baseName, String deviceName, uint32_t fileIndex, uint8_t numCrops=8)
     {
         uint32_t numSamples = (duration * SAMPLE_RATE) / 1000;
 
         if (numSamples > SAMPLE_BUFFER_SIZE) numSamples = SAMPLE_BUFFER_SIZE;
+
+        if (numCrops == 0) {
+            // not using crops store in root of SD card
+            // Save full file
+            String masterName = "/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + ".wav";  
+            writeMasterFile(masterName.c_str(), sampleBuffer, numSamples);
+            Serial.println("Wrote file: " + masterName); 
+            return;
+        }
 
         ensureDir("/master");
 
@@ -524,13 +533,8 @@ public:
         writeMasterFile(masterName.c_str(), sampleBuffer, numSamples);
         Serial.println("Wrote master file: " + masterName); 
 
-        if (!saveCrops) {
-            return;
-        }
-
-        ensureDir("/crops");
-
         // Save cropped files
+        ensureDir("/crops");
 
         // Edge case: not enough audio to make a 1s crop
         if (numSamples < NN_WINDOW_SIZE) {
@@ -538,35 +542,88 @@ public:
         }
 
         uint32_t sampleMargin = numSamples - NN_WINDOW_SIZE;
-
         uint maxCrops = sampleMargin / CROP_OFFSET + 1; // every 100 ms
 
-        uint crops = 8;
+        bool used[24] = { false };
+        uint16_t idxs[24] = {0};
+        uint8_t picked = 0;
+
+        if (maxCrops > 24) maxCrops = 24;
 
         // pick a 8 crops within maxCrops
-        if (crops > maxCrops) crops = maxCrops;
+        if (numCrops > maxCrops) numCrops = maxCrops;
 
-        if (crops <= 1) {
+        if (numCrops <= 1) {
             
             uint32_t offset = sampleMargin / 2;
 
-            String name = "/crops/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + "_" + padZeros(offset, 4) + ".wav";  
+            String name = "/crops/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + "_" + padZeros(offset, 5) + ".wav";  
             writeCroppedFiles(name.c_str(), sampleBuffer, offset, NN_WINDOW_SIZE);
         
             Serial.println("Wrote file: " + name);
             return;
         }
-        for (uint i = 0; i < crops; i++)
+
+        // stratified-random indices instead of evenly-spaced deterministic indices
+        // Split [0..maxCrops-1] into numCrops bins, pick 1 random idx per bin.
+        // with max buffer size of 60k samples and at least 20k samples per crop, maxCrops is at most 21,
+
+
+
+        for (uint8_t b = 0; b < numCrops; b++)
         {
-            uint num = i * (maxCrops - 1);
-            uint den = crops - 1;
-            uint idx = (num + den / 2) / den;
+            uint32_t start = (uint32_t)b * maxCrops / numCrops;
+            uint32_t end   = (uint32_t)(b + 1) * maxCrops / numCrops;
+            if (end == 0) continue;
+            end -= 1;
 
-            uint32_t offset = idx * CROP_OFFSET;
+            if (end >= maxCrops) end = maxCrops - 1;
+            if (start > end) start = end;
 
-            String name = "/crops/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + "_" + padZeros(offset, 4) + ".wav"; 
+            uint32_t span = end - start + 1;
+            uint32_t idx = start + (uint32_t)random((long)span);
+
+            // avoid duplicates (wrap inside bin)
+            for (uint32_t tries = 0; tries < span && used[idx]; tries++)
+            {
+                idx++;
+                if (idx > end) idx = start;
+            }
+
+            // fallback: global search forward
+            if (used[idx])
+            {
+                for (uint32_t j = 0; j < maxCrops; j++)
+                {
+                    uint32_t k = (idx + j) % maxCrops;
+                    if (!used[k]) { idx = k; break; }
+                }
+            }
+
+            used[idx] = true;
+            idxs[picked++] = (uint16_t)idx;
+        }
+
+        // sort indices (tiny list)
+        for (uint8_t i = 1; i < picked; i++)
+        {
+            uint16_t key = idxs[i];
+            int8_t k = (int8_t)i - 1;
+            while (k >= 0 && idxs[k] > key)
+            {
+                idxs[k + 1] = idxs[k];
+                k--;
+            }
+            idxs[k + 1] = key;
+        }
+
+        for (uint8_t i = 0; i < picked; i++)
+        {
+            uint32_t offset = (uint32_t)idxs[i] * (uint32_t)CROP_OFFSET;
+
+            // CHANGED: padZeros(offset, 5)
+            String name = "/crops/" + baseName + "." + deviceName + padZeros(fileIndex, 6) + "_" + padZeros(offset, 5) + ".wav";
             writeCroppedFiles(name.c_str(), sampleBuffer, offset, NN_WINDOW_SIZE);
-        
             Serial.println("Wrote file: " + name);
         }
        

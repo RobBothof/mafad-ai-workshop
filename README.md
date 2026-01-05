@@ -1,1 +1,1 @@
-# MAFAD hardware workshop by Rob Bothof (2026)
+# MAFAD AI hardware workshop by Rob Bothof (2026)
