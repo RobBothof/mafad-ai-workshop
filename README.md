@@ -1,8 +1,6 @@
-# MAFAD AI hardware workshop by Rob Bothof (2026)
+# KABK x MAFAD - AI hardware workshop
 
-## Workshop Title
-
-**Do machines sing in the dark?**
+**by Rob Bothof (2026)**
 
 ---
 
