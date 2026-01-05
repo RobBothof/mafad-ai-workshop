@@ -6,12 +6,11 @@
 
 ## Synopsis
 
-In this workshop students explore Machine Learning (ML) in a hardware-oriented context. We build insect-like robots that respond to sound and, in turn, perform their own student
-designed signature sounds themselves to communicate with each other. 
+In this workshop students explore Machine Learning (ML) in a hardware-oriented context. We build insect-like robots that perform and respond to birdsong like, digital signature sounds and melodies, designed by student.
 
-The workshop aims to debunk myths around Artificial Intelligence by focussing on fundamental / low-level neural networks that can run on a stand-alone microcontroller. We train and employ a neural network model to create non-linear mappings between sensor inputs and hardware outputs. 
+The workshop aims to debunk myths around Artificial Intelligence by focussing on fundamental / low-level neural networks that can run on a stand-alone microcontroller, free from the cloud. Students design signature sounds and create a robust dataset for neural network classification. We train and demploy the neural network model to create non-linear mappings between sensor inputs and hardware outputs.
 
-The trained neural network model can be perceive inputs, for example, detect the pitch/frequency of audio of neighbouring machines in the flock. Students develop their own strategies / tactics on how their machine responds to others with the machine’s outputs (lights / speaker). By tuning and training the models on custom training data, and developing strategies for response, the end goal is to create an emergent behavioural performance from these machines as they react to each other as a group, herd, or small swarm.
+The trained neural network model can listen to melodies of other machines in the flock. Students develop their own strategies / tactics on how their machine responds to others with the machine’s outputs (lights / speaker). By tuning and training the models on custom training data, and developing strategies for response, the end goal is to create an emergent behavioural performance from these machines as they react to each other as a group, herd, or small swarm.
 
 ---
 
