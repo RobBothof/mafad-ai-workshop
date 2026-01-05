@@ -50,6 +50,7 @@ The trained neural network model can be perceive inputs, for example, detect the
 
 ### Hardware
 - Workshop kit (PCB, electronics, UM Feather S3 board)
+- Micro SD Card
 
 ### Software
 - Laptop (with usb-A port)
