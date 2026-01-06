@@ -6,8 +6,8 @@
  * Rob Bothof [rbothof@xs4all.nl]
  */
 
-#ifndef WS2812_H
-#define WS2812_H
+#ifndef WORKSHOP_WS2812_H
+#define WORKSHOP_WS2812_H
 
 #include <Arduino.h>
 #include <soc/soc_caps.h>   // for SOC_RMT_SUPPORTED

@@ -1,54 +1,8 @@
-/* Edge Impulse Arduino examples
- * Copyright (c) 2022 EdgeImpulse Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
-// These sketches are tested with 2.0.4 ESP32 Arduino Core
-// https://github.com/espressif/arduino-esp32/releases/tag/2.0.4
-
-// If your target is limited in memory remove this macro to save 10K RAM
 #define EIDSP_QUANTIZE_FILTERBANK   0
-
-/*
- ** NOTE: If you run into TFLite arena allocation issue.
- **
- ** This may be due to may dynamic memory fragmentation.
- ** Try defining "-DEI_CLASSIFIER_ALLOCATION_STATIC" in boards.local.txt (create
- ** if it doesn't exist) and copy this file to
- ** `<ARDUINO_CORE_INSTALL_PATH>/arduino/hardware/<mbed_core>/<core_version>/`.
- **
- ** See
- ** (https://support.arduino.cc/hc/en-us/articles/360012076960-Where-are-the-installed-cores-located-)
- ** to find where Arduino installs cores on your machine.
- **
- ** If the problem persists then there's not enough memory for this model and application.
- */
-
-/* Includes ---------------------------------------------------------------- */
 #include <MAFAD_Classifier_inferencing.h>
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
 #include "driver/i2s.h"
-
 
 #define I2S_MIC_SCK_PIN 1         // clockPin
 #define I2S_MIC_WS_PIN 7          // wordSelectPin
@@ -66,10 +20,9 @@ typedef struct {
 
 static inference_t inference;
 static const uint32_t sample_buffer_size = 1024;
-static signed short sampleBuffer[sample_buffer_size];
-static int32_t sampleBuffer32[sample_buffer_size];
-static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
-static int print_results = -(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW);
+static int32_t sampleBuffer[sample_buffer_size];
+
+// static int print_results = -(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW);
 static bool record_status = true;
 
 int16_t clip32(int32_t value) {
@@ -78,27 +31,14 @@ int16_t clip32(int32_t value) {
     return static_cast<int16_t>(value);
 }
 
-static constexpr int PRINT_EVERY_SLICES = 1;   // 1=every slice (250ms), 4=every window (1s)
-static constexpr int MA_WINDOW_SLICES   = EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW;   // moving-average window in slices
-
-// ring buffer for moving average (stores last N slice probabilities)
-static float ma_hist[MA_WINDOW_SLICES][EI_CLASSIFIER_LABEL_COUNT];
-static uint16_t ma_pos = 0;
-static uint16_t ma_count = 0;
-
 static float sum[EI_CLASSIFIER_LABEL_COUNT];
 float max_score = 0.0f;
 int max_index = -1;
 
-/**
- * @brief      Arduino setup function
- */
 void setup()
 {
     // put your setup code here, to run once:
     Serial.begin(115200);
-    // comment out the below line to cancel the wait for USB connection (needed for native USB)
-    while (!Serial);
     Serial.println("Edge Impulse Inferencing Demo");
 
     // summary of inferencing settings (from model_metadata.h)
@@ -126,11 +66,9 @@ void setup()
     }
 }
 
-/**
- * @brief      Arduino main function. Runs the inferencing loop.
- */
 void loop()
 {
+    uint32_t iftimer=millis();
 
     bool m = microphone_inference_record();
     if (!m) {
@@ -143,14 +81,13 @@ void loop()
     signal.get_data = &microphone_audio_signal_get_data;
     ei_impulse_result_t result = {0};
 
-    uint32_t iftimer=millis();
 
-    EI_IMPULSE_ERROR r = run_classifier_continuous(&signal, &result, debug_nn);
+    EI_IMPULSE_ERROR r = run_classifier_continuous(&signal, &result, false);
     if (r != EI_IMPULSE_OK) {
         ei_printf("ERR: Failed to run classifier (%d)\n", r);
         return;
     }
-    ei_printf("%d", millis() - iftimer);
+
 
     max_score = 0;
     max_index = -1;
@@ -173,13 +110,15 @@ void loop()
         ei_printf(" ) **");
     }
 
+    ei_printf("%d", millis() - iftimer);
     ei_printf("\n");
+
 }
 
 static void audio_inference_callback(uint32_t num_samples)
 {
     for(int i = 0; i < num_samples; i++) {
-        inference.buffers[inference.buf_select][inference.buf_count++] = clip32(sampleBuffer32[i]/4096);
+        inference.buffers[inference.buf_select][inference.buf_count++] = clip32(sampleBuffer[i]/4096);
 
         if(inference.buf_count >= inference.n_samples) {
             inference.buf_select ^= 1;
@@ -197,7 +136,7 @@ static void capture_samples(void* arg) {
   while (record_status) {
 
     /* read data at once from i2s */
-    i2s_read((i2s_port_t)1, (void*)sampleBuffer32, i2s_samples_to_read*4, &bytes_read, 100);
+    i2s_read((i2s_port_t)1, (void*)sampleBuffer, i2s_samples_to_read*4, &bytes_read, 100);
 
     if (bytes_read <= 0) {
       ei_printf("Error in I2S read : %d", bytes_read);

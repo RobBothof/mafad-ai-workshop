@@ -1,0 +1,1 @@
+/home/robber/kabk-ai-workshop/libraries/MAFAD_Workshop/examples/model_inference_test/model_inference_test.ino

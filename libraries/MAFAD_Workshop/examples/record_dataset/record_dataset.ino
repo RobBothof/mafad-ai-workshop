@@ -1,7 +1,10 @@
 #include <Bounce2.h>
-#include <ai-workshop-WS2812.h>
+#include <ai-workshop-main.h>
+#include <ai-workshop-ws2812.h>
+#include <ai-workshop-sound.h>
 #include <ai-workshop-pitches.h>
-#include <ai-workshop.h>
+#include <ai-workshop-sdcard.h>
+#include <ai-workshop-mic.h>
 
 #define MY_DEVICE "MAFAD"
 #define MY_MELODY_1 "hello_there"
@@ -166,6 +169,9 @@ void setup()
     // Setup printing to serial monitor
     Serial.begin(115200);
     Serial.println();
+
+    // Setup randomness 
+    initializeRandomness();
 
     // Setup LightSensors
     pinMode(LDR_LEFT_PIN, INPUT);
