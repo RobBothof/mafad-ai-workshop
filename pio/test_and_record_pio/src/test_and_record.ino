@@ -1,1 +1,1 @@
-/home/robber/kabk-ai-workshop/libraries/AIWorkshop/examples/test_and_record/test_and_record.ino
+/home/robber/kabk-ai-workshop/libraries/MAFAD_Workshop/examples/test_and_record/test_and_record.ino

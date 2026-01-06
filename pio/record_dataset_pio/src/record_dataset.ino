@@ -1,1 +1,1 @@
-/home/robber/kabk-ai-workshop/libraries/AIWorkshop/examples/record_dataset/record_dataset.ino
+/home/robber/kabk-ai-workshop/libraries/MAFAD_Workshop/examples/record_dataset/record_dataset.ino
