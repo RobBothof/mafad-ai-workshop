@@ -13,6 +13,18 @@
 #define MIC_WS_PIN 7    // wordSelectPin
 #define MIC_SD_PIN 10   // channelSelectPin
 
+#define LEDRING_PIN 43   // ledring data pin
+#define NUM_LEDS 8 // the ledring uses 8 leds
+
+// Create an array/list to store 8 colors for the ledring.
+Color leds[NUM_LEDS];
+
+// Create a led ring object.
+WS2812 ledRing;
+
+uint8_t activeLED = 0;
+uint32_t ledSequenceTimer = 0;
+
 // Get values from model settings
 uint32_t capture_size = EI_CLASSIFIER_SLICE_SIZE;
 int number_of_labels = EI_CLASSIFIER_LABEL_COUNT;
@@ -88,6 +100,12 @@ void setup()
         summed_scores[i] = 0;
     }
 
+    // Setup LedRing
+    pinMode(LEDRING_PIN, OUTPUT);
+    ledRing.init(LEDRING_PIN, leds, NUM_LEDS);
+    ledRing.clear();
+    ledRing.update();
+
     // Start inference task on the other CPU core
     xTaskCreatePinnedToCore(inferenceTask, "InferenceTask", 8192, NULL, 2, NULL, 0); // 0 = core 0
 
@@ -130,5 +148,38 @@ void loop()
     }
     delay(1);
 
+    if (best_label == 0 || best_label == 1 || best_label == 2) {
+        ledRing.clear();
+        for (int l=0; l<NUM_LEDS;l++) {
+            if (best_label==0) {
+                ledRing[l].hex = 0x660000;
+            }
+            if (best_label==1) {
+                ledRing[l].hex = 0x006600;
+            }
+            if (best_label==2) {
+                ledRing[l].hex = 0x000066;
+            }
+
+        }
+        ledRing.update();
+
+    } 
+    else 
+    {
+        // show the led sequence, scanning
+        if (millis() - ledSequenceTimer > 200) {
+            // Update LED ring sequence
+            ledRing.clear();
+            ledRing[activeLED].hex = 0x330000;
+            ledRing.update();
+
+            activeLED++;
+            if (activeLED >= NUM_LEDS) {
+                activeLED = 0;
+            }
+            ledSequenceTimer = millis();
+        }
+    }
 
 }
