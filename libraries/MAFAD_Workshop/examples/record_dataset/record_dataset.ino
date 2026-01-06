@@ -254,7 +254,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -262,8 +262,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 MY_MELODY_1,
                 MY_DEVICE,
                 recordIndex,
@@ -297,7 +297,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -305,8 +305,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 MY_MELODY_2,
                 MY_DEVICE,
                 recordIndex,
@@ -339,7 +339,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -347,8 +347,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 MY_MELODY_3,
                 MY_DEVICE,
                 recordIndex,
@@ -383,7 +383,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -391,8 +391,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 MY_MELODY_1,
                 MY_DEVICE,
                 recordIndex,
@@ -426,7 +426,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -434,8 +434,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 MY_MELODY_2,
                 MY_DEVICE,
                 recordIndex,
@@ -468,7 +468,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -476,8 +476,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 MY_MELODY_3,
                 MY_DEVICE,
                 recordIndex,
@@ -510,7 +510,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -518,8 +518,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 "random",
                 MY_DEVICE,
                 recordIndex,
@@ -547,7 +547,7 @@ void loop()
         ledRing.update();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" milliseconds recorded.");
 
         // save the recorded audio to the SDCard (if present)
@@ -555,8 +555,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 "noise",
                 MY_DEVICE,
                 recordIndex,

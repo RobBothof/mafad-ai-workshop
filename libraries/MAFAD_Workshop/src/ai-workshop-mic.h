@@ -232,7 +232,7 @@ public:
                 this,
                 10,
                 &_stream.task,
-                1))
+                0))
         {
             _stream.running = false;
             free(_stream.buffers[0]); _stream.buffers[0] = nullptr;
@@ -253,12 +253,15 @@ public:
         return true;
     }
 
+    bool isStreamReady() const { return _stream.bufferReady == 1; }
+    void consumeStream() { _stream.bufferReady = 0; }
+
     uint32_t getStreamOverruns() const { return _stream.overruns; }
 
-    int getStreamData(size_t offset, size_t length, float* out_ptr)
+    static int getStreamData(size_t offset, size_t length, float* out_ptr)
     {
         if (!s_activeStreamInstance) return -1;
-        float* readyBuffer = _stream.buffers[_stream.bufferSelect ^ 1];
+        float* readyBuffer = s_activeStreamInstance->_stream.buffers[s_activeStreamInstance->_stream.bufferSelect ^ 1];
         memcpy(out_ptr, &readyBuffer[offset], length * sizeof(float));
 
         return 0;

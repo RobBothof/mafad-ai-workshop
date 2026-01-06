@@ -137,7 +137,7 @@ void loop()
         microphone.stopRecording();
 
         // Print recording statistics.
-        Serial.print(microphone.getLength());
+        Serial.print(microphone.getRecordedLengthMs());
         Serial.println(" miliseconds recorded, ");
 
         // save the recorded audio to the SDCard (if present)
@@ -145,8 +145,8 @@ void loop()
         {
             // write the audio file
             sdCard.writeAudioFile(
-                microphone.getData(),
-                microphone.getLength(),
+                microphone.getRecordedData(),
+                microphone.getRecordedLengthMs(),
                 "my_sound",
                 MY_DEVICE,
                 recordIndex,
